@@ -1,0 +1,52 @@
+QPushButton[variant="primary"] {
+    background-color: #00000000;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    padding: 8px;
+    color: white;
+    border-radius: 6px;
+    subcontrol-origin: margin;
+    subcontrol-position: top right;
+}
+
+QPushButton[variant="danger"] {
+    background-color: #d9363e;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    color: white;
+    border-radius: 6px;
+}
+
+QPushButton[variant="ghost"] {
+    background-color: transparent;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    color: #2d6cdf;
+    border: 1px solid #2d6cdf;
+    border-radius: 6px;
+}
+QPushButton:hover {
+    background-color: #45a049;
+}
+QWidget {
+    background-color: #f5f5f5;
+} 
+
+QPushButton#previous_btn {
+    qproperty-row: 0;
+    qproperty-col: 0;
+}
+QPushButton#play_btn{
+    qproperty-row: 0;
+    qproperty-col: 1;
+}
+QPushButton#next_btn{
+    qproperty-row: 0;
+    qproperty-col: 2;
+}
