@@ -1,5 +1,5 @@
 QWidget#centralWidget {
-    background-color: #1e1e2e;
+    background-color: #ffffff;
 }
 QLabel {
     color: #cdd6f4;
@@ -25,12 +25,13 @@ QPushButton#previous_btn {
     padding: 8px;
     background-color: #f38ba8;
 }
-QPushButton#play_btn{
+QPushButton#control_btn{
     min-width: 50px;
     min-height: 50px;
     max-width: 50px;
     max-height: 50px;
-    padding: 8px;
+    padding: 0px;
+    margin: 5px;
     background-color: #f38ba8;
 }
 QPushButton#next_btn{
@@ -53,10 +54,54 @@ QLineEdit, QComboBox, QTextEdit, QListWidget {
 QPixmap#album_image{
     border: 2px solid;
 }
-QLabel#artist_name {
-    width: 5px;
-    spacing: 0px;
+QLabel#music_title {
+    padding: 0px;
+    margin: 0px;
+    border: 0px;
+    qproperty-indent: 0;
+    padding: 1px;
+    min-width: 50px;
+    max-width: 100px;
+    max-height: 50px;
     color: #cdd6f4;
-    font-size: 8px;
     font-family: "Segoe UI";
+}
+
+QLabel#artist_name {
+    padding: 0px;
+    margin: 0px;
+    border: 0px;
+    qproperty-indent: 0;
+    min-width: 50px;
+    min-height: 10px;
+    max-width: 100px;
+    max-height: 10px;
+    font-size:8px;
+    padding: 8px;
+    color: #cdd6f4;
+    font-family: "Segoe UI";
+}
+
+QLabel#empty_logo {
+    text-align: center;
+    color: #cdd6f4;
+    font-size: 40px;
+    padding: 0px;
+    margin: 0px;
+    font-family: "Segoe UI";
+}
+QPushButton#add_folder {
+    text-align: center;
+    padding: 0px;
+    margin: 0px;
+}
+QWidget#panel_musci_list{
+    margin: 0px;
+}
+QWidget#panel_empty_list{
+    background-color: #CCDDFFEE;
+    border-radius: 5px;
+    border: 2px solid #005F77;
+    padding: 0px;
+    margin: 0px;
 }

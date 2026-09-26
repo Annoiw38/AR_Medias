@@ -20,8 +20,8 @@ from PyQt6.QtWidgets import (
     QGridLayout, QPushButton, QLabel, QLineEdit, QCheckBox, QComboBox,
     QSlider, QTextEdit, QListWidget, QScrollArea
 )
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap,QIcon
+from PyQt6.QtCore import Qt,QSize
 
 
 class LayoutMixin:
@@ -77,10 +77,17 @@ class LayoutMixin:
         return widget
 
     # --- scorciatoie ---
-    def add_button(self, text, name=None, on_click=None, object_name=None, **kwargs):
+    def add_button(self, text, name=None, on_click=None, object_name=None,
+               icon_p=None, icon_size=24, **kwargs):
         btn = QPushButton(text)
         if on_click:
             btn.clicked.connect(on_click)
+        if icon_p:
+            icon = QIcon(icon_p)
+            btn.setIcon(icon)
+            btn.setIconSize(QSize(icon_size, icon_size))  # <-- istanza, non la classe
+            print(f"Icon path: {icon_p} | isNull: {icon.isNull()}")
+
         return self.add_widget(btn, name=name, object_name=object_name, **kwargs)
 
     def add_label(self, text, name=None, object_name=None, **kwargs):
@@ -298,71 +305,3 @@ class QtWindow(QMainWindow, LayoutMixin):
         app = QApplication.instance()
         if app:
             app.setStyleSheet(qss)
-
-
-# ---------------------------------------------------------------------- #
-# ESEMPIO: finestra con due container, uno per bottoni, uno per altro
-# ---------------------------------------------------------------------- #
-if __name__ == "__main__":
-
-    QSS_ESEMPIO = """
-        QWidget#centralWidget { background-color: #1e1e2e; }
-        QWidget#pannelloBottoni { background-color: #313244; border-radius: 10px; }
-        QWidget#pannelloAltro { background-color: #181825; border-radius: 10px; }
-        QLabel { color: #cdd6f4; font-size: 14px; }
-        QPushButton {
-            background-color: #89b4fa; color: #1e1e2e;
-            border-radius: 6px; padding: 6px 12px; font-weight: bold;
-        }
-        QPushButton:hover { background-color: #b4befe; }
-        QLineEdit, QComboBox {
-            background-color: #45475a; color: #cdd6f4;
-            border: 1px solid #585b70; border-radius: 6px; padding: 4px;
-        }
-        QScrollArea#scrollArea {
-            border: 1px solid #45475a;
-            border-radius: 8px;
-        }
-        QScrollBar:vertical {
-            background: #1e1e2e;
-            width: 10px;
-        }
-        QScrollBar::handle:vertical {
-            background: #89b4fa;
-            border-radius: 5px;
-        }
-    """
-
-    app = QApplication(sys.argv)
-
-    # Finestra principale: layout orizzontale che affianca i due container
-    finestra = QtWindow(title="Due container", width=500, height=250, layout="horizontal")
-
-    # Container 1: solo bottoni, disposti in verticale
-    pannello_bottoni = finestra.add_container(layout="vertical", object_name="pannelloBottoni")
-    pannello_bottoni.add_label("Azioni")
-    pannello_bottoni.add_button("Salva")
-    pannello_bottoni.add_button("Apri")
-    pannello_bottoni.add_button("Elimina")
-
-    # Container 2: altri widget, disposti in verticale
-    pannello_altro = finestra.add_container(layout="vertical", object_name="pannelloAltro")
-    pannello_altro.add_label("Impostazioni")
-    pannello_altro.add_line_edit(placeholder="Nome file...", name="nome_file")
-    pannello_altro.add_combobox(["Opzione A", "Opzione B"], name="combo")
-    pannello_altro.add_checkbox("Attiva notifiche")
-    # Esempio (decommenta e metti un path valido per provarlo):
-    # pannello_altro.add_image("cover.png", width=150, height=150, name="cover_label")
-
-    # Container 3: lista scorrevole con tanti elementi
-    lista_scorrevole = finestra.add_container(layout="vertical")
-    lista_scorrevole.add_label("Elenco lungo:")
-    scroll = lista_scorrevole.add_scroll_container(
-        layout="vertical", object_name="pannelloAltro", scroll_object_name="scrollArea"
-    )
-    for i in range(30):
-        scroll.add_button(f"Elemento {i}")
-
-    finestra.apply_qss_string(QSS_ESEMPIO)
-    finestra.show()
-    sys.exit(app.exec())
