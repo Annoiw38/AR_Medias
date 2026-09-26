@@ -1,69 +1,368 @@
-from classes.button import Button
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+"""
+Modulo con classi PyQt6 riutilizzabili per costruire finestre a partire
+da "container" indipendenti (ognuno con il proprio layout), più supporto
+completo a QSS.
+
+Classi:
+- LayoutMixin: logica comune per aggiungere widget a un layout
+  (V/H/Grid). Usata sia da Container che da QtWindow.
+- Container(QWidget): un pannello con il proprio layout, da annidare
+  dentro altri container o dentro la finestra principale.
+- QtWindow(QMainWindow): la finestra principale, che internamente è
+  già un container e supporta add_container() per crearne altri.
+
+Richiede: pip install PyQt6
+"""
+
+import sys
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QGridLayout, QPushButton, QLabel, QLineEdit, QCheckBox, QComboBox,
+    QSlider, QTextEdit, QListWidget, QScrollArea
+)
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt
 
 
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("My Window")
-        self.setGeometry(100, 100, 400, 300)
+class LayoutMixin:
+    """
+    Mixin con tutti i metodi 'add_*'. Chi la usa deve avere:
+    - self._layout  (QVBoxLayout / QHBoxLayout / QGridLayout)
+    - self._widgets (dict)
+    - self._grid_row, self._grid_col, self._grid_max_cols (per la griglia)
+    """
 
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
-
-        # Dictionary to gest widget with names or keys
-        self._widgets = {}
-
-    # Add a widget
-    def add_widget(self, key: str, widget: QWidget, index: int = None):
-        if key in self._widgets:
-            raise ValueError(f"Widget con chiave '{key}' esiste già")
-
-        self._widgets[key] = widget
-
-        if index is None:
-            self.layout.addWidget(widget)
+    def _init_layout(self, layout, max_cols=4, spacing=None, margins=None):
+        if layout == "vertical":
+            self._layout = QVBoxLayout()
+        elif layout == "horizontal":
+            self._layout = QHBoxLayout()
+        elif layout == "grid":
+            self._layout = QGridLayout()
         else:
-            self.layout.insertWidget(index, widget)
+            raise ValueError("layout deve essere 'vertical', 'horizontal' o 'grid'")
 
-    # Remove a widget
-    def remove_widget(self, key: str):
-        widget = self._widgets.pop(key, None)
-        if widget is None:
-            return
+        self._widgets = {}
+        self._grid_row = 0
+        self._grid_col = 0
+        self._grid_max_cols = max_cols
 
-        self.layout.removeWidget(widget)
-        widget.setParent(None)   # stacca il widget dalla finestra
-        widget.deleteLater()     # lo elimina dalla memoria
+        if spacing is not None:
+            self.set_spacing(spacing)
+        if margins is not None:
+            if isinstance(margins, (int, float)):
+                self.set_margins(margins)
+            else:
+                self.set_margins(*margins)
 
-    # Get a widget to modify
-    def get_widget(self, key: str) -> QWidget:
-        return self._widgets.get(key)
+    def _add_to_layout(self, widget, row=None, col=None, colspan=1, rowspan=1, stretch=0):
+        if isinstance(self._layout, QGridLayout):
+            if row is None:
+                row, col = self._grid_row, self._grid_col
+                self._grid_col += colspan
+                if self._grid_col >= self._grid_max_cols:
+                    self._grid_col = 0
+                    self._grid_row += 1
+            self._layout.addWidget(widget, row, col, rowspan, colspan)
+        else:
+            self._layout.addWidget(widget, stretch)
 
-    # Hide or show without delete
-    def toggle_widget(self, key: str, visible: bool = None):
-        widget = self._widgets.get(key)
-        if widget is None:
-            return
-        widget.setVisible(not widget.isVisible() if visible is None else visible)
+    def add_widget(self, widget, name=None, object_name=None, **kwargs):
+        """Aggiunge un QWidget qualsiasi a questo container/finestra."""
+        if object_name:
+            widget.setObjectName(object_name)
+        if name:
+            self._widgets[name] = widget
+        self._add_to_layout(widget, **kwargs)
+        return widget
 
-    # Replace a widget
-    def replace_widget(self, key: str, new_widget: QWidget):
-        old_widget = self._widgets.get(key)
-        if old_widget is None:
-            self.add_widget(key, new_widget)
-            return
+    # --- scorciatoie ---
+    def add_button(self, text, name=None, on_click=None, object_name=None, **kwargs):
+        btn = QPushButton(text)
+        if on_click:
+            btn.clicked.connect(on_click)
+        return self.add_widget(btn, name=name, object_name=object_name, **kwargs)
 
-        index = self.layout.indexOf(old_widget)
-        self.remove_widget(key)
-        self.add_widget(key, new_widget, index=index)
-    def set_grid_layout(self, grid_layout, widgets: dict):
-        """Sostituisce il layout principale con una griglia e registra i widget."""
-        if self.layout is not None:
-            QWidget().setLayout(self.layout)
+    def add_label(self, text, name=None, object_name=None, **kwargs):
+        lbl = QLabel(text)
+        return self.add_widget(lbl, name=name, object_name=object_name, **kwargs)
 
-        self.layout = grid_layout
-        self.setLayout(self.layout)
-        self._widgets.update(widgets)
+    def add_line_edit(self, placeholder="", name=None, object_name=None, **kwargs):
+        le = QLineEdit()
+        le.setPlaceholderText(placeholder)
+        return self.add_widget(le, name=name, object_name=object_name, **kwargs)
+
+    def add_checkbox(self, text, name=None, object_name=None, **kwargs):
+        cb = QCheckBox(text)
+        return self.add_widget(cb, name=name, object_name=object_name, **kwargs)
+
+    def add_combobox(self, items, name=None, object_name=None, **kwargs):
+        combo = QComboBox()
+        combo.addItems(items)
+        return self.add_widget(combo, name=name, object_name=object_name, **kwargs)
+
+    def add_slider(self, minimum=0, maximum=100, orientation="horizontal",
+                   name=None, object_name=None, **kwargs):
+        orient = Qt.Orientation.Horizontal if orientation == "horizontal" else Qt.Orientation.Vertical
+        slider = QSlider(orient)
+        slider.setMinimum(minimum)
+        slider.setMaximum(maximum)
+        return self.add_widget(slider, name=name, object_name=object_name, **kwargs)
+
+    def add_text_edit(self, text="", name=None, object_name=None, **kwargs):
+        te = QTextEdit()
+        te.setPlainText(text)
+        return self.add_widget(te, name=name, object_name=object_name, **kwargs)
+
+    def add_list_widget(self, items=None, name=None, object_name=None, **kwargs):
+        lw = QListWidget()
+        if items:
+            lw.addItems(items)
+        return self.add_widget(lw, name=name, object_name=object_name, **kwargs)
+
+    def add_image(self, path=None, data=None, width=None, height=None, keep_aspect=True,
+                  name=None, object_name=None, **kwargs):
+        """
+        Aggiunge un'immagine come QLabel con una QPixmap.
+        - path: percorso file su disco (jpg, png, ico, ecc.)
+        - data: in alternativa a path, byte grezzi dell'immagine già in
+          memoria (es. cover_bytes ottenuti da AudioMetadataReader)
+        - width/height: se specificati, l'immagine viene ridimensionata
+        - keep_aspect: mantiene le proporzioni originali durante il resize
+
+        Il QLabel restituito ha un pixmap "fisso": per cambiarlo dopo, usa
+        set_image().
+        """
+        lbl = QLabel()
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pixmap = QPixmap()
+        if data is not None:
+            pixmap.loadFromData(data)
+        elif path is not None:
+            pixmap = QPixmap(path)
+
+        if width or height:
+            w = width or pixmap.width()
+            h = height or pixmap.height()
+            mode = (Qt.AspectRatioMode.KeepAspectRatio if keep_aspect
+                    else Qt.AspectRatioMode.IgnoreAspectRatio)
+            pixmap = pixmap.scaled(w, h, mode, Qt.TransformationMode.SmoothTransformation)
+
+        lbl.setPixmap(pixmap)
+        return self.add_widget(lbl, name=name, object_name=object_name, **kwargs)
+
+    def set_image(self, label, path=None, data=None, width=None, height=None, keep_aspect=True):
+        """Aggiorna l'immagine di una QLabel già creata con add_image()."""
+        pixmap = QPixmap()
+        if data is not None:
+            pixmap.loadFromData(data)
+        elif path is not None:
+            pixmap = QPixmap(path)
+
+        if width or height:
+            w = width or pixmap.width()
+            h = height or pixmap.height()
+            mode = (Qt.AspectRatioMode.KeepAspectRatio if keep_aspect
+                    else Qt.AspectRatioMode.IgnoreAspectRatio)
+            pixmap = pixmap.scaled(w, h, mode, Qt.TransformationMode.SmoothTransformation)
+        label.setPixmap(pixmap)
+
+    def add_spacing(self, size=20):
+        if isinstance(self._layout, (QVBoxLayout, QHBoxLayout)):
+            self._layout.addSpacing(size)
+
+    def add_stretch(self, stretch=1):
+        if isinstance(self._layout, (QVBoxLayout, QHBoxLayout)):
+            self._layout.addStretch(stretch)
+
+    def set_column_stretch(self, col, stretch):
+        if isinstance(self._layout, QGridLayout):
+            self._layout.setColumnStretch(col, stretch)
+
+    def set_row_stretch(self, row, stretch):
+        if isinstance(self._layout, QGridLayout):
+            self._layout.setRowStretch(row, stretch)
+
+    def set_spacing(self, spacing):
+        """Distanza (in px) tra i widget dentro questo layout."""
+        self._layout.setSpacing(spacing)
+
+    def set_horizontal_spacing(self, spacing):
+        """Solo per layout a griglia: distanza tra colonne."""
+        if isinstance(self._layout, QGridLayout):
+            self._layout.setHorizontalSpacing(spacing)
+
+    def set_vertical_spacing(self, spacing):
+        """Solo per layout a griglia: distanza tra righe."""
+        if isinstance(self._layout, QGridLayout):
+            self._layout.setVerticalSpacing(spacing)
+
+    def set_margins(self, left, top=None, right=None, bottom=None):
+        """
+        Margine (in px) tra il bordo del container e i widget interni.
+        Puoi passare un solo valore per applicarlo su tutti e 4 i lati,
+        oppure i 4 valori singolarmente (left, top, right, bottom).
+        """
+        if top is None:
+            top = right = bottom = left
+        self._layout.setContentsMargins(left, top, right, bottom)
+
+    def add_container(self, layout="vertical", name=None, object_name=None,
+                       max_cols=4, spacing=None, margins=None, **kwargs):
+        """
+        Crea un nuovo Container (con il proprio layout indipendente),
+        lo aggiunge a questo container/finestra e lo restituisce, così
+        puoi popolarlo separatamente con i suoi add_button/add_label/ecc.
+        """
+        container = Container(layout=layout, max_cols=max_cols, spacing=spacing, margins=margins)
+        self.add_widget(container, name=name, object_name=object_name, **kwargs)
+        return container
+
+    def add_scroll_container(self, layout="vertical", name=None,
+                              object_name=None, scroll_object_name=None,
+                              max_cols=4, spacing=None, margins=None,
+                              horizontal_scroll=False, **kwargs):
+        """
+        Aggiunge un'area scorrevole (QScrollArea) e al suo interno un
+        Container: restituisce il Container, così ci aggiungi widget
+        normalmente (add_button, add_label, add_image, ecc.) e diventano
+        automaticamente scorrevoli quando superano lo spazio disponibile.
+
+        - object_name: nome QSS del Container interno (il contenuto)
+        - scroll_object_name: nome QSS della QScrollArea stessa (il "riquadro")
+        - horizontal_scroll: se True permette anche lo scroll orizzontale
+        """
+        container = Container(layout=layout, max_cols=max_cols, spacing=spacing, margins=margins)
+        if object_name:
+            container.setObjectName(object_name)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        if scroll_object_name:
+            scroll.setObjectName(scroll_object_name)
+        if not horizontal_scroll:
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(container)
+
+        if name:
+            self._widgets[name] = container
+        self._add_to_layout(scroll, **kwargs)
+        return container
+
+    def get(self, name):
+        """Recupera un widget registrato con name=... (cerca anche nei container annidati)."""
+        if name in self._widgets:
+            return self._widgets[name]
+        for w in self._widgets.values():
+            if isinstance(w, LayoutMixin):
+                found = w.get(name)
+                if found is not None:
+                    return found
+        return None
+
+
+class Container(QWidget, LayoutMixin):
+    """Un pannello con il proprio layout, da annidare dentro altri container."""
+
+    def __init__(self, layout="vertical", max_cols=4, spacing=None, margins=None):
+        super().__init__()
+        self._init_layout(layout, max_cols=max_cols, spacing=spacing, margins=margins)
+        self.setLayout(self._layout)
+
+
+class QtWindow(QMainWindow, LayoutMixin):
+    """Finestra Qt6 flessibile: è essa stessa un container di primo livello."""
+
+    def __init__(self, title="Finestra", width=800, height=600, layout="vertical",
+                 max_cols=4, spacing=None, margins=None):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.resize(width, height)
+
+        self._central = QWidget()
+        self._central.setObjectName("centralWidget")
+        self.setCentralWidget(self._central)
+
+        self._init_layout(layout, max_cols=max_cols, spacing=spacing, margins=margins)
+        self._central.setLayout(self._layout)
+
+    # --- QSS ---
+    def apply_qss_string(self, qss: str):
+        self.setStyleSheet(qss)
+
+    def apply_qss_file(self, path: str):
+        with open(path, "r", encoding="utf-8") as f:
+            self.setStyleSheet(f.read())
+
+    def apply_qss_to_app(self, qss: str):
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(qss)
+
+
+# ---------------------------------------------------------------------- #
+# ESEMPIO: finestra con due container, uno per bottoni, uno per altro
+# ---------------------------------------------------------------------- #
+if __name__ == "__main__":
+
+    QSS_ESEMPIO = """
+        QWidget#centralWidget { background-color: #1e1e2e; }
+        QWidget#pannelloBottoni { background-color: #313244; border-radius: 10px; }
+        QWidget#pannelloAltro { background-color: #181825; border-radius: 10px; }
+        QLabel { color: #cdd6f4; font-size: 14px; }
+        QPushButton {
+            background-color: #89b4fa; color: #1e1e2e;
+            border-radius: 6px; padding: 6px 12px; font-weight: bold;
+        }
+        QPushButton:hover { background-color: #b4befe; }
+        QLineEdit, QComboBox {
+            background-color: #45475a; color: #cdd6f4;
+            border: 1px solid #585b70; border-radius: 6px; padding: 4px;
+        }
+        QScrollArea#scrollArea {
+            border: 1px solid #45475a;
+            border-radius: 8px;
+        }
+        QScrollBar:vertical {
+            background: #1e1e2e;
+            width: 10px;
+        }
+        QScrollBar::handle:vertical {
+            background: #89b4fa;
+            border-radius: 5px;
+        }
+    """
+
+    app = QApplication(sys.argv)
+
+    # Finestra principale: layout orizzontale che affianca i due container
+    finestra = QtWindow(title="Due container", width=500, height=250, layout="horizontal")
+
+    # Container 1: solo bottoni, disposti in verticale
+    pannello_bottoni = finestra.add_container(layout="vertical", object_name="pannelloBottoni")
+    pannello_bottoni.add_label("Azioni")
+    pannello_bottoni.add_button("Salva")
+    pannello_bottoni.add_button("Apri")
+    pannello_bottoni.add_button("Elimina")
+
+    # Container 2: altri widget, disposti in verticale
+    pannello_altro = finestra.add_container(layout="vertical", object_name="pannelloAltro")
+    pannello_altro.add_label("Impostazioni")
+    pannello_altro.add_line_edit(placeholder="Nome file...", name="nome_file")
+    pannello_altro.add_combobox(["Opzione A", "Opzione B"], name="combo")
+    pannello_altro.add_checkbox("Attiva notifiche")
+    # Esempio (decommenta e metti un path valido per provarlo):
+    # pannello_altro.add_image("cover.png", width=150, height=150, name="cover_label")
+
+    # Container 3: lista scorrevole con tanti elementi
+    lista_scorrevole = finestra.add_container(layout="vertical")
+    lista_scorrevole.add_label("Elenco lungo:")
+    scroll = lista_scorrevole.add_scroll_container(
+        layout="vertical", object_name="pannelloAltro", scroll_object_name="scrollArea"
+    )
+    for i in range(30):
+        scroll.add_button(f"Elemento {i}")
+
+    finestra.apply_qss_string(QSS_ESEMPIO)
+    finestra.show()
+    sys.exit(app.exec())

@@ -1,35 +1,32 @@
 import sys
-from pathlib import Path
-from PyQt6.QtWidgets import QApplication,QGridLayout
-
-from classes.window import MainWindow
-from classes.button import Button
+import os
+from classes.window import QtWindow
+from PyQt6.QtWidgets import QApplication, QFileDialog
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
+from PyQt6.QtCore import QUrl
+from PyQt6.QtGui import QImage,QPixmap
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    BASE_DIR = Path(__file__).resolve().parent
-    ICON_DIR = BASE_DIR / "assets" / "media-player-control"
-    with open(Path(__file__).parent / "style/styles.qss", "r") as f:
-        app.setStyleSheet(f.read())
-
-    window = MainWindow()
-    buttons: list = [
-        Button(icon_path=str(ICON_DIR /"previous.ico"), variant="primary"),
-        Button(icon_path=str(ICON_DIR /"play.ico"), variant="primary"),
-        Button(icon_path=str(ICON_DIR /"next.ico"), variant="primary"),
+    path = "/home/fabrizio-computer/Documenti/env_annoiw_project/annoi_project/AR_Medias/style/styles.qss"
+    with open(path,"r") as file:
+        content = file.read() 
+    
+    icon_path : list = [
+        "/home/fabrizio-computer/Documenti/env_annoiw_project/annoi_project/AR_Medias/assets/media-player-control/previous.ico",
+        "/home/fabrizio-computer/Documenti/env_annoiw_project/annoi_project/AR_Medias/assets/media-player-control/play.ico",
+        "/home/fabrizio-computer/Documenti/env_annoiw_project/annoi_project/AR_Medias/assets/media-player-control/next.ico"
     ]
+    app = QApplication(sys.argv)
 
-    i: int = 0
+    finestra = QtWindow(title="AR mdeia player", width=500, height=250, layout="grid",spacing=20,margins=1)
+    panelMusic = finestra.add_container(layout="vertical",object_name="panel_music", spacing=0,margins=0)
+    panelMetaData = panelMusic.add_container(layout="vertical",object_name="panel_meta_data", spacing=0,margins=0)
+    panelMediaPlayerControl = panelMusic.add_container(layout="horizontal",object_name="panel_media_player_control", spacing=0,margins=0)
+    panelMetaData.add_image(path="/home/fabrizio-computer/Documenti/env_annoiw_project/annoi_project/AR_Medias/assets/no_image.png",name="albumImage",object_name="album_image")
+    panelMetaData.add_label("None music",name="musicTitle",object_name="music_title")
+    panelMetaData.add_label("None Artist",name="artistName",object_name="artist_name")
+    
 
-    widgets_dict = {}
-    grid = QGridLayout()
-    grid.setSpacing(20)
-    grid.setContentsMargins(100, 100, 100, 100)
-    for button_wg in buttons:
-        grid.addWidget(button_wg, button_wg.row, button_wg.col)
-        widgets_dict["ui_btn" + str(i)] = button_wg
-        i += 1
-
-    window.set_grid_layout(grid, widgets_dict)
-    window.show()
+    finestra.apply_qss_string(content)
+    finestra.show()
     sys.exit(app.exec())
